@@ -336,7 +336,7 @@ public class BuildSpellbook extends Graph{
 		// Build the SMS system
 		BuildSpellbook m_SMS = new BuildSpellbook();
 		// Read the inputs 
-		String PATH = "C:\\Users\\travi\\OneDrive\\Desktop\\Workshop\\SampleData\\";
+		String PATH = "";
 		String datafile = "sample_P1.in";
 		// The number of commands we can run
 		//Integer N = m_SMS.MAXCOMS;
