@@ -81,26 +81,26 @@ public class BuildSpellbook extends Graph{
 		if(!m_learnedSkills.contains(_s)) {
 			outSpecs.add("   "+_s + " is not learned");
 		}else {
-			if(isForgetable(_s)) {
+			//lets check if the spell is needed by others
+			if(!isNeeded(_s)) {
+				// the spell is save to forget
+				removeFromLearned(_s);
 				outSpecs.add("   Forgetting "+ _s);
+				
+				
 				// we check if their prereq are deletable;
 				SpellList prereq = getSpell(_s).getPrereq();
-				Stack<String> pStack = new Stack<String>();
+				List<String> prereqCopy = new ArrayList<String>();
 				Iterator<String> pIt = prereq.iterator();
 				while(pIt.hasNext()) {
-					String curPrereq= pIt.next();
-					pStack.add(curPrereq);
-					
+					prereqCopy.add(pIt.next());
 				}
-				while(!pStack.isEmpty()) {
-					String sName = pStack.pop();
-					if(isForgetable(sName)) {
-						outSpecs.add("   Forgetting "+ sName);
+				for (String p: prereqCopy){
+					if(m_learnedSkills.contains(p)) {
+						Forget(p,outSpecs);
 					}
 				}
-				
-						
-				}else {
+			}else {
 				outSpecs.add("   "+_s + " is still needed");
 			}
 		}
@@ -115,39 +115,76 @@ public class BuildSpellbook extends Graph{
 	
 	
 	
-	public static Boolean isForgetable(String _s) {
+	public static Boolean isNeeded(String _s) {
 		//_s is the spell that we are checking to delete
 		// post condition: returns false 
 		//    iff a spell in the learnedskill list needs this spell
 		
-		// we iterate through the list
-		Iterator<String> lIt = m_learnedSkills.iterator();
-		while(lIt.hasNext()) {
-			// get the spell in the list
-			Spell spell = getSpell(lIt.next());
-			// get the spell prereqs
-			SpellList prereq = spell.getPrereq();
-			// if prereq from the spell in the list
-			if(prereq.contains(_s)) {
+		// for each learned skills
+		for(String s: m_learnedSkills) {
+			//if it is equal skip 
+			if(s.equals(_s))
+				continue;
+			// if it is not then we check its prereqs
+			SpellList prereq = getSpell(s).getPrereq();
+			//if it does contain the spell that we need to remove
+			if(prereq.contains(_s))
 				return false;
-			}
-			
-		}	
-		// check if their prereq can be deleted
+		}
 		
-		
-		removeFromLearned(_s);
 		return true;
 		
 	}
 	// go through the learnedskills 
 	// check 
 	
+	public void learnSpell(String _s, Vector<String> outSpecs) {
+		if(!m_skillTree.containsKey(_s)) {
+			// skill not in the tree therefore we learn it
+			Spell spell = new Spell(_s);
+			m_skillTree.put(_s,spell);
+			m_learnedSkills.add(_s);
+			outSpecs.add(" learning " +_s);
+			return;
+		}
+		learnRecur(_s,outSpecs);
+		setUnmarked();
+	}
+	public void learnRecur(String _s, Vector<String> outSpecs) {
+		Spell spell = getSpell(_s);
+		
+		if(spell.isMarked()) return; // we  have checked it there for no need to check that path
+		spell.setMarked(); // if not mark it
+		
+		// lets learn all the prereqs before learning the spell
+		SpellList prereqs = spell.getPrereq();
+		Iterator<String> pIt = prereqs.iterator();
+		while(pIt.hasNext()) {
+			String prereq = pIt.next();
+			if(!m_learnedSkills.contains(prereq)) {
+				learnRecur(prereq,outSpecs);
+			}
+		}
+		// start from last
+		if(m_learnedSkills.contains(_s)) {
+			outSpecs.add( "  "+_s +" is already leanred");
+		}else {
+			m_learnedSkills.add(_s);
+			outSpecs.add(" Learning " + _s);
+		}
+	}
+		
+	
+	
+	
 	// learning function
 	public void Learn(String _s, Vector<String> outSpecs ) {
 		// 1 - if their adj list are empty then we learn
 		// 2 - if their adj list is not empty and not learn we learn it
 		if(m_skillTree.containsKey(_s)) {
+			
+			
+			
 			List<String> path = DFS(_s);
 			Stack<String> lStack = new Stack<String>();
 			SpellList prereq = getSpell(_s).getPrereq();
@@ -199,10 +236,10 @@ public class BuildSpellbook extends Graph{
 		while(sIt.hasNext() && c <= N ) {
 			String s = sIt.next();
 				outSpecs.add(s);
-			if(s.contains(m_commandName[4]) || terminate == true) {
+			if(s.contains(m_commandName[4])) {
 				terminate = true;	
+				break;
 			}else {
-				
 				// we need to recognise the command
 				if(s.contains(m_commandName[0])) {
 					// WE ARE PREREQ
@@ -212,7 +249,7 @@ public class BuildSpellbook extends Graph{
 				if(s.contains(m_commandName[1])) {
 					// WE ARE LEARNING
 					String line = cutComd(s,m_commandName[1].length());
-					Learn(line,outSpecs);
+					learnSpell(line,outSpecs);
 				}
 				if(s.contains(m_commandName[2])) {
 					// WE ARE FORGETTING
@@ -230,13 +267,6 @@ public class BuildSpellbook extends Graph{
 			}
 			c++;
 		}
-		System.out.println("----------------");
-		Iterator<String> oIt = outSpecs.iterator();
-		while(oIt.hasNext()) {
-			System.out.println(oIt.next());
-		}
-		
-		System.out.println("----------------");
 		return outSpecs;
 	}
 	

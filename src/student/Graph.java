@@ -150,20 +150,108 @@ public class Graph {
 		return false;
 	}
 	// return a list of strings containing a depth first traversal from s
-		public static List<String> DFS(String s){
+	public static List<String> DFS(String s){
+		
+		List<String> visitedList = new Vector<String>();
+		getSpell(s).setMarked();
+		SpellList adjList = getSpell(s).getAdjs();
+		Iterator<String> sIt = adjList.iterator();
+		while(sIt.hasNext()) {
+			String nextSpell = sIt.next();
+			if (!getSpell(nextSpell).isMarked()) {
+				List<String> temList = DFS(nextSpell);
+				visitedList.addAll(temList);
+			}
+		}
+		visitedList.add(0,s);
+		return visitedList;
+	}
+	/**
+	 * Find a cycle reachable from StartNode using DFS + Recursion
+	 * Returns the cycle as an ordered list of Spell Name
+	 * or an empty list with no cycle exist from this node
+	 */
+	public static List<String> findCycle(String startNode){
+		Map<String,Boolean> recStack = new HashMap<>(); // tracks nodes
+		Map<String,String> parent = new HashMap<>(); // tracks edges
+		
+		for( String key : m_skillTree.keySet()) {
+			recStack.put(key, false);
+		}
+		
+		List<String> cycle = new ArrayLsit<>();
+		findCycleHelper(startNode, recStack, parent,cycle);
+		return cycle;
+	}
+	
+	private static boolean findCycleHelper(
+			String node, Map<String,Boolean> recStack,
+			Map<String, String> parent, List<String> cycle) {
+		
+		getSpell(node).setMarked();
+		recStack.put(node, true);
+		
+		SpellList adjs = getSpell(node).getAdjs();
+		Iterator<String> it = adjs.iterator();
+		while(it.hasNext()) {
+			String neighbour = it.next();
 			
-			List<String> visitedList = new Vector<String>();
-			getSpell(s).setMarked();
-			SpellList adjList = getSpell(s).getAdjs();
-			Iterator<String> sIt = adjList.iterator();
-			while(sIt.hasNext()) {
-				String nextSpell = sIt.next();
-				if (!getSpell(nextSpell).isMarked()) {
-					List<String> temList = DFS(nextSpell);
-					visitedList.addAll(temList);
+			// the neighbour hasnt been recursively visisted
+			if(!getSpell(neighbour).isMarked()) {
+				parent.put(neighbour, node);
+				if(findCycleHelper(neighbour,recStack,parent,cycle))
+					return true;
+			}else if( recStack.getOrDefault(neighbour, false)) {
+			//neighbour is on path therefore there is a cycle
+			// reconstruct cycle by walkinf back through parent map
+				cycle.add(neighbour);//cycle closes back to this node
+				String cur = node;
+				while(!cur.equals(neighbour)) {
+					cycle.add(cur);
+					cur = parent.get(cur);
+				}
+				cycle.add(neighbour); // add start again so it apears when printing
+				Collections.reverse(cycle);
+				return true;
+			}
+		}
+		recStack.put(node, false);
+		return false;
+	}
+	
+	public static List<List<String>> findAllCycles(){
+		List<List<String>> allCycles = new ArrayList<>();
+		for(String key : m_skillTree.keySet()) {
+			setUnmarked();
+			List<String> cycle = findCycle(key);
+			if(!cycle.isEmpty()) {
+				//avoid Duplocates by checking if we have seen the set
+				boolean duplicate = false;
+				Set<String> cycleSet = new HashSet<>(cycle);
+				for(List<String> existing : allCycles) {
+					if(new HashSet<>(existing).equals(cycleSet)) {
+						duplicate = true;
+						break;
+					}
+				}
+				if(!duplicate) {
+					allCycles.add(cycle);
 				}
 			}
-			visitedList.add(0,s);
-			return visitedList;
 		}
+		setUnmarked();
+		return allCycles;
+	}
+	public static void removeEdge(String from, String to) {
+	    Spell spell = getSpell(from);
+	    if (spell != null) {
+	        spell.removeAdj(to);
+	        // Also clean up prereq list so Learn/Forget stay consistent
+	        SpellList prereqs = spell.getPrereq();
+	        if (prereqs.contains(to)) {
+	            prereqs.remove(to);
+	        }
+	    }
+	}
+	
 }
